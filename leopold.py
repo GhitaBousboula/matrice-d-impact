@@ -125,10 +125,26 @@ if resultats:
         df = df[expected_cols]
         ordre_phases = ["Préconstruction", "Construction", "Exploitation/Entretien", "Démantèlement"]
         df["Phase"] = pd.Categorical(df["Phase"], categories=ordre_phases, ordered=True)
-
         df = df.sort_values(by=["Phase", "Activité", "Composante", "Milieu"])
 
+        # Préparation du comptage pour rowspan
+        from collections import defaultdict
+        rowspan_data = defaultdict(lambda: defaultdict(int))
+        for col in ["Phase", "Activité", "Composante"]:
+            previous = None
+            count = 0
+            for i, value in enumerate(df[col]):
+                if value == previous:
+                    count += 1
+                else:
+                    if previous is not None:
+                        rowspan_data[col][start_idx] = count
+                    previous = value
+                    count = 1
+                    start_idx = i
+            rowspan_data[col][start_idx] = count  # Last group
 
+        # Construction du tableau HTML
         html = """
         <style>
         table {
@@ -159,37 +175,23 @@ if resultats:
             <tbody>
         """
 
-        last_values = {"Phase": None, "Activité": None, "Composante": None}
-        counts = df.groupby(["Phase", "Activité", "Composante"]).size().reset_index(name='count')
-
-        for _, row in df.iterrows():
+        for i, row in df.reset_index().iterrows():
             html += "<tr>"
             for col in ["Phase", "Activité", "Composante"]:
-                if row[col] != last_values[col]:
-                    rowspan = counts.query(
-                        f"Phase == '{row['Phase']}' and Activité == '{row['Activité']}' and Composante == '{row['Composante']}'"
-                    )['count'].values[0] if col == "Composante" else \
-                    counts[counts[col] == row[col]]['count'].sum()
+                if i in rowspan_data[col]:
+                    rowspan = rowspan_data[col][i]
                     html += f'<td rowspan="{rowspan}">{row[col]}</td>'
-                    last_values[col] = row[col]
-                else:
-                    pass
-
             html += f"<td>{row['Milieu']}</td>"
             html += f"<td>{row['Nature d’impact']}</td>"
             style = get_color(row["Importance"], row["Nature d’impact"])
             html += f'<td style="{style}">{row["Importance"]}</td>'
             html += f"<td>{row['Impact appréhendé']}</td>"
-
-            if row["Nature d’impact"] == "négatif":
-                html += f"<td>{row['Mesure d’atténuation']}</td>"
-            else:
-                html += "<td>—</td>"
-
+            html += f"<td>{row['Mesure d’atténuation'] if row['Nature d’impact'] == 'négatif' else '—'}</td>"
             html += "</tr>"
 
         html += "</tbody></table>"
         return html
+
 
     st.markdown(tableau_html_fusion(df), unsafe_allow_html=True)
 
