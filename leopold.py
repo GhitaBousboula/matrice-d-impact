@@ -1,26 +1,19 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Matrice de Leopold", layout="wide")
+st.set_page_config(page_title="Matrice d'Impact Environnemental", layout="wide")
+st.title("🌍 Générateur de Matrice d'Impact Environnemental par Phase")
 
-st.title("📊 Matrice de Leopold avec intensité, étendue, durée et nature")
-st.write("Sélectionnez les paramètres pour chaque action et composante, et obtenez une matrice textuelle colorée basée sur l'importance et la nature de l'impact.")
+st.markdown("""
+Cette application vous permet de :
+- Sélectionner les phases du projet (préconstruction, construction, exploitation, démantèlement)
+- Définir les activités pour chaque phase
+- Définir les composantes et milieux concernés pour chaque activité
+- Évaluer les impacts (intensité, étendue, durée, nature)
+- Ajouter des mesures d’atténuation pour les impacts négatifs
+""")
 
-# Actions du projet (colonnes)
-actions = st.multiselect(
-    "Actions du projet", 
-    ["Installation de chantier", "Terrassement", "Dépôt de matériaux", "Utilisation de machinerie", "Travaux de construction"],
-    default=["Installation de chantier", "Terrassement"]
-)
-
-# Composantes environnementales (lignes)
-composantes = st.multiselect(
-    "Composantes environnementales", 
-    ["Sol", "Eau", "Air", "Topographie", "Ressources géologiques", "Bruit", "Faune", "Flore", "Paysage", "Exploitations agricoles", "Sécurité humaine", "Infrastructures existantes", "Déchets", "Eaux usées", "Circulation routière"],
-    default=["Sol", "Eau", "Faune"]
-)
-
-# Table de correspondance simulée (simplifiée)
+# --- Table de correspondance simulée pour importance ---
 def evaluer_importance(intensite, etendue, duree):
     table = {
         ("très forte", "régionale", "long terme"): "Très forte",
@@ -49,7 +42,7 @@ def evaluer_importance(intensite, etendue, duree):
         ("moyenne", "locale", "court terme"): "Très faible",
         ("moyenne", "ponctuelle", "long terme"): "Faible",
         ("moyenne", "ponctuelle", "moyen terme"): "Faible",
-        ("moyenne", "ponctuelle", "court terme"): "Faibe",
+        ("moyenne", "ponctuelle", "court terme"): "Très faible",
         ("faible", "régionale", "long terme"): "Moyenne",
         ("faible", "régionale", "moyen terme"): "Moyenne",
         ("faible", "régionale", "court terme"): "Faible",
@@ -64,79 +57,141 @@ def evaluer_importance(intensite, etendue, duree):
     return table.get(cle, "Faible")
 
 # Couleurs combinées nature + importance
-def get_color_class(val, nature):
+def get_color(val, nature):
     if nature == "neutre":
         return 'background-color: white; color: black;'
     if nature == "négatif":
         colors = {
-            "Très forte": "#8B0000",  # Rouge foncé
-            "Forte": "#FF4500",      # Orange foncé
-            "Moyenne": "#FFA500",    # Orange
-            "Faible": "#FFFF66",     # Jaune clair
-            "Très faible": "#F0E68C"   # Jaune pâle
+            "Très forte": "#8B0000",
+            "Forte": "#FF4500",
+            "Moyenne": "#FFA500",
+            "Faible": "#FFFF66",
+            "Très faible": "#F0E68C"
         }
     else:
         colors = {
-            "Très forte": "#006400",   # Vert foncé
-            "Forte": "#228B22",       # Vert moyen
-            "Moyenne": "#7CFC00",     # Vert vif
-            "Faible": "#ADFF2F",      # Vert clair
-            "Très faible": "#E0FFE0"    # Vert très pâle
+            "Très forte": "#006400",
+            "Forte": "#228B22",
+            "Moyenne": "#7CFC00",
+            "Faible": "#ADFF2F",
+            "Très faible": "#E0FFE0"
         }
-    color = colors.get(val, "#FFFFFF")
-    text_color = "black"
-    return f'background-color: {color}; color: {text_color};'
+    return f'background-color: {colors.get(val, "white")}; color: black;'
 
-# Collecte des résultats
+st.markdown("## 📋 Définir les impacts par phase, activité et milieu")
+phases = st.multiselect("Phases du projet", ["Préconstruction", "Construction", "Exploitation/Entretien", "Démantèlement"])
+
 resultats = []
-if actions and composantes:
-    for composante in composantes:
-        st.subheader(f"⚙️ {composante}")
-        for action in actions:
-            with st.expander(f"Action : {action}"):
-                nature = st.selectbox("Nature de l’impact", ["négatif", "positif", "neutre"], key=f"nature-{action}-{composante}")
+for phase in phases:
+    st.subheader(f"Phase : {phase}")
+    nb_activites = st.number_input(f"Nombre d'activités pour {phase}", min_value=1, step=1, key=f"actnum-{phase}")
+    for i in range(nb_activites):
+        activite = st.text_input(f"Activité {i+1} ({phase})", key=f"{phase}-act-{i}")
+        composantes = st.multiselect(f"Composantes pour {activite}", ["Physique", "Biologique", "Humain"], key=f"{phase}-comp-{i}")
+        for composante in composantes:
+            milieux = st.text_area(f"Milieux concernés ({activite} - {composante})", key=f"{phase}-milieu-{i}-{composante}", placeholder="Un par ligne")
+            for milieu in [m.strip() for m in milieux.split("\n") if m.strip()]:
+                with st.expander(f"Impact : {activite} → {milieu} ({composante})"):
+                    nature = st.selectbox("Nature de l’impact", ["négatif", "positif", "neutre"], key=f"{phase}-{activite}-{milieu}-nature")
+                    impact_apprehende = st.text_area("Impact appréhendé", key=f"{phase}-{activite}-{milieu}-apprehende")
+                    if nature != "neutre":
+                        intensite = st.selectbox("Intensité", ["très forte", "forte", "moyenne", "faible"], key=f"{phase}-{activite}-{milieu}-intensite")
+                        etendue = st.selectbox("Étendue", ["régionale", "locale", "ponctuelle"], key=f"{phase}-{activite}-{milieu}-etendue")
+                        duree = st.selectbox("Durée", ["long terme", "moyen terme", "court terme"], key=f"{phase}-{activite}-{milieu}-duree")
+                        importance = evaluer_importance(intensite, etendue, duree)
+                        attenuation = ""
+                        if nature == "négatif":
+                            attenuation = st.text_area("Mesures d’atténuation", key=f"{phase}-{activite}-{milieu}-attenuation")
+                    else:
+                        importance = "Neutre"
+                        attenuation = ""
+                    resultats.append({
+                        "Phase": phase,
+                        "Activité": activite,
+                        "Composante": composante,
+                        "Milieu": milieu,
+                        "Nature d’impact": nature,
+                        "Importance": importance,
+                        "Impact appréhendé": impact_apprehende,
+                        "Mesure d’atténuation": attenuation
+                    })
 
-                if nature != "neutre":
-                    intensite = st.selectbox("Intensité", ["très forte", "forte", "moyenne", "faible"], key=f"intensite-{action}-{composante}")
-                    etendue = st.selectbox("Étendue", ["régionale", "locale", "ponctuelle"], key=f"etendue-{action}-{composante}")
-                    duree = st.selectbox("Durée", ["long terme", "moyen terme", "court terme"], key=f"duree-{action}-{composante}")
-                    importance = evaluer_importance(intensite, etendue, duree)
-                else:
-                    importance = "Neutre"
-
-                resultats.append({"Composante": composante, "Action": action, "Importance": importance, "Nature": nature})
-
-    # Création de la matrice enrichie
+if resultats:
     df = pd.DataFrame(resultats)
-    pivot = df.pivot(index="Composante", columns="Action", values="Importance").fillna("")
-    nature_dict = df.pivot(index="Composante", columns="Action", values="Nature").fillna("")
+    st.markdown("##  Matrice des impacts environnementaux")
 
-    html = """
-    <style>
-    .leopold-table {border-collapse: collapse; width: 100%; margin-bottom: 20px;}
-    .leopold-table th, .leopold-table td {border: 1px solid #ddd; padding: 8px; text-align: center;}
-    .leopold-table th.vertical {height: 140px; white-space: nowrap; position: relative; padding: 0;}
-    .leopold-table th.vertical > div {transform: rotate(-90deg); position: absolute; left: 0; right: 0; bottom: 0; top: 0; margin: auto; height: 20px; width: 100%; transform-origin: center center;}
-    </style>
-    <table class="leopold-table">
-        <thead><tr><th>Composantes</th>
-    """
-    for col in pivot.columns:
-        html += f'<th class="vertical"><div>{col}</div></th>'
-    html += "</tr></thead><tbody>"
-    for idx in pivot.index:
-        html += f'<tr><td><strong>{idx}</strong></td>'
-        for col in pivot.columns:
-            val = pivot.loc[idx, col]
-            nature = nature_dict.loc[idx, col]
-            style = get_color_class(val, nature)
-            html += f'<td style="{style}">{val}</td>'
-        html += '</tr>'
-    html += "</tbody></table>"
+    def tableau_html_fusion(df):
+        expected_cols = ["Phase", "Activité", "Composante", "Milieu", "Nature d’impact", "Importance", "Impact appréhendé", "Mesure d’atténuation"]
+        df = df[expected_cols]
+        ordre_phases = ["Préconstruction", "Construction", "Exploitation/Entretien", "Démantèlement"]
+        df["Phase"] = pd.Categorical(df["Phase"], categories=ordre_phases, ordered=True)
 
-    st.markdown("### 🖼️ Matrice générée")
-    st.markdown(html, unsafe_allow_html=True)
-    
+        df = df.sort_values(by=["Phase", "Activité", "Composante", "Milieu"])
 
 
+        html = """
+        <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        </style>
+        <table>
+            <thead>
+                <tr>
+                    <th>Phase</th>
+                    <th>Activité</th>
+                    <th>Composante</th>
+                    <th>Milieu</th>
+                    <th>Nature d’impact</th>
+                    <th>Importance</th>
+                    <th>Impact appréhendé</th>
+                    <th>Mesure d’atténuation</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
 
+        last_values = {"Phase": None, "Activité": None, "Composante": None}
+        counts = df.groupby(["Phase", "Activité", "Composante"]).size().reset_index(name='count')
+
+        for _, row in df.iterrows():
+            html += "<tr>"
+            for col in ["Phase", "Activité", "Composante"]:
+                if row[col] != last_values[col]:
+                    rowspan = counts.query(
+                        f"Phase == '{row['Phase']}' and Activité == '{row['Activité']}' and Composante == '{row['Composante']}'"
+                    )['count'].values[0] if col == "Composante" else \
+                    counts[counts[col] == row[col]]['count'].sum()
+                    html += f'<td rowspan="{rowspan}">{row[col]}</td>'
+                    last_values[col] = row[col]
+                else:
+                    pass
+
+            html += f"<td>{row['Milieu']}</td>"
+            html += f"<td>{row['Nature d’impact']}</td>"
+            style = get_color(row["Importance"], row["Nature d’impact"])
+            html += f'<td style="{style}">{row["Importance"]}</td>'
+            html += f"<td>{row['Impact appréhendé']}</td>"
+
+            if row["Nature d’impact"] == "négatif":
+                html += f"<td>{row['Mesure d’atténuation']}</td>"
+            else:
+                html += "<td>—</td>"
+
+            html += "</tr>"
+
+        html += "</tbody></table>"
+        return html
+
+    st.markdown(tableau_html_fusion(df), unsafe_allow_html=True)
+
+else:
+    st.info("Remplissez les champs pour générer la matrice.")
