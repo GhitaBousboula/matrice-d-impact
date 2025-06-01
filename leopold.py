@@ -3,6 +3,9 @@ import pandas as pd
 from utils import evaluer_importance, get_color
 import html
 
+
+
+
 # Polyfill for Streamlit’s rerun (newer vs older versions)
 try:
     _rerun = st.experimental_rerun
@@ -24,8 +27,6 @@ class Impact:
         self.importance = self.calculate_importance()
 
     def calculate_importance(self):
-        if self.nature == 'neutre':
-            return 'Neutre'
         return evaluer_importance(self.intensite or '', self.etendue or '', self.duree or '')
 
 class Activity:
@@ -52,7 +53,7 @@ class Project:
                 return phase
         return None
 
-    def to_dataframe(self):
+    def __to_dataframe(self):
         data = []
         for phase in self.phases:
             for activity in phase.activities:
@@ -65,20 +66,58 @@ class Project:
                         "Nature impact": impact.nature,
                         "Importance": impact.importance,
                         "Impact appréhendé": impact.impact_apprehende,
-                        "Mesure atténuation": impact.attenuation if impact.nature == 'négatif' else ''
+                        "Mesure atténuation": impact.attenuation if (impact.nature == 'négatif' or impact.nature == 'risque impact') else ''
                     })
         return pd.DataFrame(data)
 
 
+    def to_dataframe(self):
+        data = []
+        for phase in self.phases:
+            for idx_activite, activity in enumerate(phase.activities):
+                for impact in activity.impacts:
+                    data.append({
+                        "Phase": phase.name,
+                        "OrdreActivité": idx_activite,        
+                        "Activité": activity.name,
+                        "Composante": impact.composante,
+                        "Milieu": impact.milieu,
+                        "Nature impact": impact.nature,
+                        "Importance": impact.importance,
+                        "Impact appréhendé": impact.impact_apprehende,
+                        "Mesure atténuation": impact.attenuation 
+                                        if (impact.nature in ('négatif', 'risque impact')) 
+                                        else ''
+                    })
+        return pd.DataFrame(data)
+
+
+
 def tableau_html_fusion(df):
     df = df[[
-        "Phase", "Activité", "Composante", "Milieu",
+        "Phase", "OrdreActivité", "Activité",  
+        "Composante", "Milieu",
         "Nature impact", "Importance", "Impact appréhendé", "Mesure atténuation"
     ]]
+    
+    
     ordre_phases = ["Préconstruction", "Construction", "Exploitation/Entretien", "Démantèlement"]
     df["Phase"] = pd.Categorical(df["Phase"], categories=ordre_phases, ordered=True)
-    df = df.sort_values(by=["Phase", "Activité", "Composante", "Milieu"]).reset_index(drop=True)
 
+    df["Composante"] = pd.Categorical(
+        df["Composante"],
+        categories=["Physique", "Biologique", "Humain"],
+        ordered=True
+    )
+
+    df = df.sort_values(
+        by=["Phase", "OrdreActivité", "Composante", "Milieu"],
+        ascending=[True, True, True, True]
+    ).reset_index(drop=True)
+    
+    df = df.drop(columns=["OrdreActivité"])
+    
+    
     # Calcul des rowspans
     rowspan_data = {}
     hierarchy_cols = ["Phase", "Activité", "Composante"]
@@ -316,13 +355,6 @@ def main():
                                 # Suppression de milieu
                                 col1, col2 = st.columns([0.9, 0.1])
                                 with col1:
-                                    # milieu_name = st.text_input(
-                                    #     f"Milieu {i}",
-                                    #     key=f"name_{milieu_key}",
-                                    #     placeholder="Nom du milieu (ex: Eau, Air, Sol...)"
-                                    # )
-
-                                    # strip() removes any accidental spaces before/after the name
                                     raw_milieu = st.text_input(
                                         f"Milieu {i}",
                                         key=f"name_{milieu_key}",
@@ -345,7 +377,7 @@ def main():
                                 # Paramètres d'impact
                                 nature = st.selectbox(
                                     "Nature de l'impact",
-                                    ["négatif", "positif", "neutre"],
+                                    ["négatif", "positif", "risque impact"],
                                     index=0,
                                     key=f"nat_{milieu_key}"
                                 )
@@ -365,47 +397,39 @@ def main():
                                     height=100
                                 )
                                 
-                                # Paramètres supplémentaires pour impacts non neutres
+                                # Paramètres supplémentaires pour impacts non 
                                 intensite = etendue = duree = attenuation = None
-                                if nature != 'neutre':
-                                    cols = st.columns(3)
-                                    with cols[0]:
-                                        intensite = st.selectbox(
-                                            "Intensité",
-                                            ["très forte", "forte", "moyenne", "faible"],
-                                            index=0,
-                                            key=f"int_{milieu_key}"
-                                        )
-                                    with cols[1]:
-                                        etendue = st.selectbox(
-                                            "Étendue",
-                                            ["régionale", "locale", "ponctuelle"],
-                                            index=1,
-                                            key=f"et_{milieu_key}"
-                                        )
-                                    with cols[2]:
-                                        duree = st.selectbox(
-                                            "Durée",
-                                            ["long terme", "moyen terme", "court terme"],
-                                            index=2,
-                                            key=f"dur_{milieu_key}"
-                                        )
-                                    
-                                    if nature == 'négatif':
-                                        # attenuation = st.text_area(
-                                        #     "Mesures d'atténuation",
-                                        #     value=existing_impact.attenuation if existing_impact else "",
-                                        #     key=f"att_{milieu_key}",
-                                        #     height=100
-                                        # )
-
-                                        # use the stable loop index `i` in the key rather than the text itself
-                                        attenuation = st.text_area(
-                                            "Mesures d'atténuation",
-                                            value=existing_impact.attenuation if existing_impact else "",
-                                            key=f"att_{phase.name}_{activity.name}_{comp}_{i}",
-                                            height=100
-                                        )                                        
+                                cols = st.columns(3)
+                                with cols[0]:
+                                    intensite = st.selectbox(
+                                        "Intensité",
+                                        ["très forte", "forte", "moyenne", "faible"],
+                                        index=0,
+                                        key=f"int_{milieu_key}"
+                                    )
+                                with cols[1]:
+                                    etendue = st.selectbox(
+                                        "Étendue",
+                                        ["régionale", "locale", "ponctuelle"],
+                                        index=1,
+                                        key=f"et_{milieu_key}"
+                                    )
+                                with cols[2]:
+                                    duree = st.selectbox(
+                                        "Durée",
+                                        ["long terme", "moyen terme", "court terme"],
+                                        index=2,
+                                        key=f"dur_{milieu_key}"
+                                    )
+                                
+                                if nature == 'négatif' or nature == 'risque impact':
+                                    # use the stable loop index `i` in the key rather than the text itself
+                                    attenuation = st.text_area(
+                                        "Mesures d'atténuation",
+                                        value=existing_impact.attenuation if existing_impact else "",
+                                        key=f"att_{phase.name}_{activity.name}_{comp}_{i}",
+                                        height=100
+                                    )                                        
                                 
                                 # Créer/mettre à jour l'objet Impact
                                 new_impact = Impact(

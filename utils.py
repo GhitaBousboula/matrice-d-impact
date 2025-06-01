@@ -43,8 +43,17 @@ def evaluer_importance(intensite, etendue, duree):
     return table.get(cle, "Faible")
 
 def get_color(val, nature):
-    if nature == "neutre":
-        return 'background-color: white; color: black;'
+    if nature == "risque impact":
+        colors = {
+            # très fortee , we choose dark orange for very high risk
+            # risque impact doivent etre violets
+            "Très forte": "#8A2BE2",
+            "Forte": "#9370DB",
+            "Moyenne": "#BA55D3",
+            "Faible": "#DDA0DD",
+            "Très faible": "#E6E6FA"
+        }
+           
     if nature == "négatif":
         colors = {
             "Très forte": "#8B0000",
@@ -53,7 +62,7 @@ def get_color(val, nature):
             "Faible": "#FFFF66",
             "Très faible": "#F0E68C"
         }
-    else:
+    if nature == "positif":
         colors = {
             "Très forte": "#006400",
             "Forte": "#228B22",
