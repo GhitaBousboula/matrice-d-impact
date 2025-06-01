@@ -45,13 +45,7 @@ def evaluer_importance(intensite, etendue, duree):
 def get_color(val, nature):
     if nature == "risque impact":
         colors = {
-            # très fortee , we choose dark orange for very high risk
-            # risque impact doivent etre violets
-            "Très forte": "#8A2BE2",
-            "Forte": "#9370DB",
-            "Moyenne": "#BA55D3",
-            "Faible": "#DDA0DD",
-            "Très faible": "#E6E6FA"
+            "risque impact": "#8A2BE2",
         }
            
     if nature == "négatif":

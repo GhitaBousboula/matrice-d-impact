@@ -27,6 +27,8 @@ class Impact:
         self.importance = self.calculate_importance()
 
     def calculate_importance(self):
+        if self.nature == 'risque impact':
+            return 'risque impact'
         return evaluer_importance(self.intensite or '', self.etendue or '', self.duree or '')
 
 class Activity:
@@ -52,23 +54,6 @@ class Project:
             if phase.name == phase_name:
                 return phase
         return None
-
-    def __to_dataframe(self):
-        data = []
-        for phase in self.phases:
-            for activity in phase.activities:
-                for impact in activity.impacts:
-                    data.append({
-                        "Phase": phase.name,
-                        "Activité": activity.name,
-                        "Composante": impact.composante,
-                        "Milieu": impact.milieu,
-                        "Nature impact": impact.nature,
-                        "Importance": impact.importance,
-                        "Impact appréhendé": impact.impact_apprehende,
-                        "Mesure atténuation": impact.attenuation if (impact.nature == 'négatif' or impact.nature == 'risque impact') else ''
-                    })
-        return pd.DataFrame(data)
 
 
     def to_dataframe(self):
@@ -400,26 +385,27 @@ def main():
                                 # Paramètres supplémentaires pour impacts non 
                                 intensite = etendue = duree = attenuation = None
                                 cols = st.columns(3)
-                                with cols[0]:
-                                    intensite = st.selectbox(
-                                        "Intensité",
-                                        ["très forte", "forte", "moyenne", "faible"],
-                                        index=0,
-                                        key=f"int_{milieu_key}"
-                                    )
-                                with cols[1]:
-                                    etendue = st.selectbox(
-                                        "Étendue",
-                                        ["régionale", "locale", "ponctuelle"],
-                                        index=1,
-                                        key=f"et_{milieu_key}"
-                                    )
-                                with cols[2]:
-                                    duree = st.selectbox(
-                                        "Durée",
-                                        ["long terme", "moyen terme", "court terme"],
-                                        index=2,
-                                        key=f"dur_{milieu_key}"
+                                if nature != 'risque impact':
+                                    with cols[0]:
+                                        intensite = st.selectbox(
+                                            "Intensité",
+                                            ["très forte", "forte", "moyenne", "faible"],
+                                            index=0,
+                                            key=f"int_{milieu_key}"
+                                        )
+                                    with cols[1]:
+                                        etendue = st.selectbox(
+                                            "Étendue",
+                                            ["régionale", "locale", "ponctuelle"],
+                                            index=1,
+                                            key=f"et_{milieu_key}"
+                                        )
+                                    with cols[2]:
+                                        duree = st.selectbox(
+                                            "Durée",
+                                            ["long terme", "moyen terme", "court terme"],
+                                            index=2,
+                                            key=f"dur_{milieu_key}"
                                     )
                                 
                                 if nature == 'négatif' or nature == 'risque impact':
